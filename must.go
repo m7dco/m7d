@@ -1,19 +1,18 @@
-package r
+package m7d
 
 func Assert(statement bool, desc string) {
-    if !statement {
-        panic(desc)
-    }
+	if !statement {
+		panic(desc)
+	}
 }
 
 func Must(err error) {
-    if err != nil {
-        panic(err)
-    }
+	if err != nil {
+		panic(err)
+	}
 }
 
 func Check[T any](v T, err error) T {
-    Must(err)
-    return v
+	Must(err)
+	return v
 }
-
