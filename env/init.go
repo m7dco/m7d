@@ -2,6 +2,7 @@ package env
 
 import (
 	"flag"
+	"log/slog"
 	"os"
 	"strings"
 )
@@ -60,6 +61,8 @@ func createEnvMap(envs []string) map[string]string {
 }
 
 func initFlags(e *Env, args, envs []string) error {
+	slog.Info("initFlags", "args", args, "environment-vars", envs)
+
 	e.Flags.Init(e.Flags.Name(), flag.ContinueOnError)
 	set := map[string]any{}
 	vars := createEnvMap(envs)
@@ -80,6 +83,10 @@ func initFlags(e *Env, args, envs []string) error {
 			}
 
 		}
+	})
+
+	e.Flags.VisitAll(func(f *flag.Flag) {
+		slog.Info("inifFlags", "flag", f.Name, "value", f.Value)
 	})
 
 	return nil
