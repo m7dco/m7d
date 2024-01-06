@@ -26,7 +26,7 @@ func Init() (*Env, error) {
 	}
 
 	initEnv, initErr = initInternal(
-		os.Args, os.Environ(),
+		os.Args[1:], os.Environ(),
 		flag.CommandLine)
 
 	return initEnv, initErr
