@@ -1,6 +1,7 @@
 package env
 
 import (
+	"bytes"
 	"flag"
 	"reflect"
 	"testing"
@@ -94,7 +95,7 @@ func TestInitInternalFlags(t *testing.T) {
 		age := flags.Int("age", 66, "")
 		drinksCoffee := flags.Bool("coffee", false, "")
 
-		env, err := initInternal(tc.args, tc.envs, flags)
+		env, err := initInternal(tc.args, tc.envs, flags, &bytes.Buffer{})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -103,6 +104,50 @@ func TestInitInternalFlags(t *testing.T) {
 
 		if *greeting != tc.greeting || *age != tc.age || *drinksCoffee != tc.coffee {
 			t.Fatal(*greeting, *age, *drinksCoffee)
+		}
+	}
+}
+
+func TestInitInternalSlog(t *testing.T) {
+	tests := []struct {
+		f            func(e *Env)
+		wantFileName string
+	}{
+		{
+			func(t *Env) {
+			},
+			"",
+		},
+	}
+
+	for _, tc := range tests {
+		buf := &bytes.Buffer{}
+		e := Check(initInternal(nil, nil, flag.NewFlagSet(t.Name(), flag.ContinueOnError), buf))
+		tc.f(e)
+
+		t.Log(buf.String())
+	}
+}
+
+func TestPkgFile(t *testing.T) {
+	tests := []struct {
+		path string
+		want string
+	}{
+		{
+			"/hello.txt",
+			"/hello.txt",
+		},
+		{
+			"foo/bar/car/hello.go",
+			"car/hello.go",
+		},
+	}
+
+	for _, tc := range tests {
+		got := pkgfile(tc.path)
+		if got != tc.want {
+			t.Fatal(got, tc.want)
 		}
 	}
 }

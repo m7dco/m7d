@@ -2,13 +2,16 @@ package env
 
 import (
 	"flag"
+	"io"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
 type Env struct {
 	Flags *flag.FlagSet
+	Log   *slog.Logger
 }
 
 var (
@@ -27,20 +30,28 @@ func Init() (*Env, error) {
 
 	initEnv, initErr = initInternal(
 		os.Args[1:], os.Environ(),
-		flag.CommandLine)
+		flag.CommandLine,
+		os.Stdout)
 
 	return initEnv, initErr
 }
 
 func initInternal(
 	args, envs []string,
-	commandLine *flag.FlagSet) (*Env, error) {
+	commandLine *flag.FlagSet,
+	w io.Writer) (*Env, error) {
 
 	e := &Env{
 		Flags: commandLine,
 	}
 
-	return e, initFlags(e, args, envs)
+	err := initFlags(e, args, envs)
+	if err != nil {
+		return nil, err
+	}
+
+	err = initSlog(e, w)
+	return e, err
 }
 
 // Create a map[string]string from array of "key=value" strings.
@@ -86,8 +97,47 @@ func initFlags(e *Env, args, envs []string) error {
 	})
 
 	e.Flags.VisitAll(func(f *flag.Flag) {
-		slog.Info("inifFlags", "flag", f.Name, "value", f.Value)
+		slog.Info("initFlags", "flag", f.Name, "value", f.Value)
 	})
 
+	return nil
+}
+
+func pkgfile(path string) string {
+	file := filepath.Base(path)
+	dir := filepath.Dir(path)
+	pkg := filepath.Base(dir)
+	l := len(pkg) + 1 + len(file)
+
+	at := len(path) - l
+	if at < 0 {
+		return path
+	}
+
+	return path[at:]
+}
+
+func initSlog(e *Env, w io.Writer) error {
+	log := slog.New(slog.NewTextHandler(w, &slog.HandlerOptions{
+		AddSource: true,
+		Level:     slog.LevelInfo,
+		ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
+			if a.Key != slog.SourceKey {
+				return a
+			}
+
+			source, _ := a.Value.Any().(*slog.Source)
+			if source == nil {
+				return a
+			}
+
+			// TODO(dape): how can I include source.Function as an attribute?
+			source.File = pkgfile(source.File)
+			return a
+		},
+	}))
+
+	slog.SetDefault(log)
+	e.Log = log
 	return nil
 }
