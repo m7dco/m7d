@@ -4,10 +4,14 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"regexp"
 	"strconv"
 
 	"github.com/m7dco/m7d/env"
 	xhttp "github.com/m7dco/m7d/server/net/http"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 type Host struct {
@@ -19,6 +23,7 @@ type Host struct {
 	Mux            *http.ServeMux
 	InternalServer *http.Server
 	InternalMux    *http.ServeMux
+	PRegistry      *prometheus.Registry
 }
 
 func newHttpServer(port int) (*http.Server, *http.ServeMux) {
@@ -37,12 +42,23 @@ func NewHost(e *env.Env, port, internalPort int) *Host {
 	internalMux.Handle("/ready", &xhttp.ProbezHandler{state.IsReady, "ready"})
 	internalMux.Handle("/healthy", &xhttp.ProbezHandler{state.IsHealthy, "healthy"})
 
+	reg := prometheus.NewRegistry()
+	internalMux.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{Registry: reg}))
+	registerDefaultMetrics(reg)
+
 	log := e.Log.WithGroup("server.Host")
 
 	ready := state.ReadyReporter("host")
 
-	h := &Host{e, log, state, ready, server, mux, internalServer, internalMux}
+	h := &Host{e, log, state, ready, server, mux, internalServer, internalMux, reg}
 	return h
+}
+
+func registerDefaultMetrics(reg *prometheus.Registry) {
+	reg.MustRegister(collectors.NewBuildInfoCollector())
+	reg.MustRegister(collectors.NewGoCollector(
+		collectors.WithGoCollectorRuntimeMetrics(collectors.GoRuntimeMetricsRule{Matcher: regexp.MustCompile("/.*")}),
+	))
 }
 
 func (h *Host) runServer(cancel func(), name string, srv *http.Server) {

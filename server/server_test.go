@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"flag"
 	"runtime"
 	"testing"
 	"time"
@@ -17,6 +18,10 @@ func checkRRH(t *testing.T, h *Host) {
 		t.Fatal()
 	}
 }
+
+var (
+	canonicalMainTimeout = flag.Duration("canonical_main_timeout", 100*time.Millisecond, "Timeout for the main")
+)
 
 func TestCanonicalMain(t *testing.T) {
 	e := m7d.Check(env.Init())
@@ -37,7 +42,7 @@ func TestCanonicalMain(t *testing.T) {
 
 	checkRRH(t, host)
 
-	time.Sleep(1000 * time.Second)
+	time.Sleep(*canonicalMainTimeout)
 
 	cancel()
 }
