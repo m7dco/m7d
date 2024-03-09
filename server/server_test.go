@@ -33,8 +33,9 @@ func TestCanonicalMain(t *testing.T) {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
+	res := make(chan error)
 	go func() {
-		host.Run(ctx)
+		res <- host.Run(ctx)
 	}()
 
 	runtime.Gosched()
@@ -45,4 +46,7 @@ func TestCanonicalMain(t *testing.T) {
 	time.Sleep(*canonicalMainTimeout)
 
 	cancel()
+
+	runErr := <-res
+	t.Log(runErr)
 }

@@ -2,10 +2,12 @@ package server
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"regexp"
 	"strconv"
+	"time"
 
 	"github.com/m7dco/m7d/env"
 	xhttp "github.com/m7dco/m7d/server/net/http"
@@ -61,23 +63,47 @@ func registerDefaultMetrics(reg *prometheus.Registry) {
 	))
 }
 
-func (h *Host) runServer(cancel func(), name string, srv *http.Server) {
+func (h *Host) runServer(errc chan error, name string, srv *http.Server) {
 	err := srv.ListenAndServe()
 	if err == http.ErrServerClosed {
 		return
-
 	}
 
 	h.log.Error("server stopped", "name", name, "err", err)
-	cancel()
+	errc <- err
 }
 
-func (h *Host) Run(ctx context.Context) {
+func (h *Host) Run(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
-	go h.runServer(cancel, "external", h.Server)
-	go h.runServer(cancel, "internal", h.InternalServer)
+	errc := make(chan error, 2)
+	go h.runServer(errc, "external", h.Server)
+	go h.runServer(errc, "internal", h.InternalServer)
 
 	h.ready(true)
 
-	<-ctx.Done()
+	res := []error{}
+
+	select {
+	case <-ctx.Done():
+		h.Server.Close()
+		h.InternalServer.Close()
+
+	case err := <-errc:
+		res = append(res, err)
+		h.Server.Close()
+		h.InternalServer.Close()
+	}
+
+	cancel()
+
+	shutdownAt := time.After(100 * time.Millisecond)
+	for {
+		select {
+		case <-shutdownAt:
+			return errors.Join(res...)
+
+		case err := <-errc:
+			res = append(res, err)
+		}
+	}
 }
