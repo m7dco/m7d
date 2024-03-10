@@ -17,15 +17,17 @@ import (
 )
 
 type Host struct {
-	env            *env.Env
-	log            *slog.Logger
-	State          *State
-	ready          ReadyFunc
-	Server         *http.Server
-	Mux            *http.ServeMux
-	InternalServer *http.Server
-	InternalMux    *http.ServeMux
-	PRegistry      *prometheus.Registry
+	env               *env.Env
+	log               *slog.Logger
+	State             *State
+	ready             ReadyFunc
+	Server            *http.Server
+	ServerRun         func() error
+	Mux               *http.ServeMux
+	InternalServer    *http.Server
+	InternalServerRun func() error
+	InternalMux       *http.ServeMux
+	PRegistry         *prometheus.Registry
 }
 
 func newHttpServer(port int) (*http.Server, *http.ServeMux) {
@@ -52,7 +54,19 @@ func NewHost(e *env.Env, port, internalPort int) *Host {
 
 	ready := state.ReadyReporter("host")
 
-	h := &Host{e, log, state, ready, server, mux, internalServer, internalMux, reg}
+	h := &Host{
+		e,
+		log,
+		state,
+		ready,
+		server,
+		server.ListenAndServe,
+		mux,
+		internalServer,
+		internalServer.ListenAndServe,
+		internalMux,
+		reg,
+	}
 	return h
 }
 
@@ -63,8 +77,8 @@ func registerDefaultMetrics(reg *prometheus.Registry) {
 	))
 }
 
-func (h *Host) runServer(errc chan error, name string, srv *http.Server) {
-	err := srv.ListenAndServe()
+func (h *Host) runServer(errc chan error, name string, run func() error) {
+	err := run()
 	if err == http.ErrServerClosed {
 		return
 	}
@@ -76,8 +90,8 @@ func (h *Host) runServer(errc chan error, name string, srv *http.Server) {
 func (h *Host) Run(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	errc := make(chan error, 2)
-	go h.runServer(errc, "external", h.Server)
-	go h.runServer(errc, "internal", h.InternalServer)
+	go h.runServer(errc, "external", h.ServerRun)
+	go h.runServer(errc, "internal", h.InternalServerRun)
 
 	h.ready(true)
 
