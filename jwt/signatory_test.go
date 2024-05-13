@@ -6,10 +6,11 @@ import (
 	jwt "github.com/golang-jwt/jwt/v5"
 )
 
-func TestSign(t *testing.T) {
+func TestSignAndParse(t *testing.T) {
 	tests := []struct {
 		signatory interface {
 			Sign(*Claims) (string, error)
+			Parse(*Claims, string) (*jwt.Token, error)
 		}
 		want string
 	}{
@@ -33,5 +34,12 @@ func TestSign(t *testing.T) {
 		if err != nil || g != tc.want {
 			t.Fatalf("wrong result; got:%q want:%q err:%+v", g, tc.want, err)
 		}
+
+		c2 := Claims{}
+		tok, err := tc.signatory.Parse(&c2, g)
+		if err != nil {
+			t.Fatalf("failed to parse token; err:%+v", err)
+		}
+		t.Log(tok)
 	}
 }
