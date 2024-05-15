@@ -55,19 +55,23 @@ func (k *KeySet) findKey(issuer Issuer, kid string) (rsa.PublicKey, bool) {
 	return pub, ok
 }
 
+func (k *KeySet) Update(issuer Issuer) error {
+	latest, err := issuer.latest()
+	if err != nil {
+		slog.Error("failed to fetch latest key", "issuer", issuer.String(), "err", err)
+		return err
+	}
+
+	defer latest.Close()
+	return k.upsert(issuer, latest)
+}
+
 func (k *KeySet) Get(issuer Issuer, kid string) (rsa.PublicKey, bool) {
 	if k, ok := k.findKey(issuer, kid); ok {
 		return k, ok
 	}
 
-	latest, err := issuer.latest()
-	if err != nil {
-		slog.Error("failed to fetch latest key", "issuer", issuer.String(), "err", err)
-		return rsa.PublicKey{}, false
-	}
-
-	defer latest.Close()
-	err = k.upsert(issuer, latest)
+	err := k.Update(issuer)
 	if err != nil {
 		return rsa.PublicKey{}, false
 	}
