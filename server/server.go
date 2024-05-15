@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"regexp"
@@ -34,7 +35,14 @@ func newHttpServer(port int) (*http.Server, *http.ServeMux) {
 	server := &http.Server{}
 	server.Addr = ":" + strconv.Itoa(port)
 	mux := http.NewServeMux()
-	server.Handler = mux
+
+	logger := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		slog.Info("handling", "path", req.URL.Path, "method", req.Method)
+		fmt.Println(req.Method, req.URL.Path)
+		mux.ServeHTTP(w, req)
+	})
+
+	server.Handler = logger
 	return server, mux
 }
 
