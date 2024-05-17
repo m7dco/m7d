@@ -16,7 +16,7 @@ func TestSignAndParse(t *testing.T) {
 	}{
 		{
 			&HMACSignatory{[]byte("the-key"), jwt.SigningMethodHS512},
-			"eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiQWxwaGEgQnJhdm8iLCJpc3MiOiJNN0MuY28ifQ.WcJOo0qGbHZB5yVj-O7K_mZ8lQhJ_FSJNYe2BjpNDx5kMsxv_mHh5bE8F3EjxjKDl8Kv8rzvUC6JfbntpC-QDQ",
+			"eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiQWxwaGEgQnJhdm8iLCJlbWFpbCI6ImFscGhhQGJyYXZvLmNvbSIsImlzcyI6Ik03Qy5jbyJ9.lK9QUtOzR-I4LUlX83xfc_c5zfsSq1P-XHGybztBvBP2TkAfdyySP5oWaHKRtVQHB_FcN3vX4pwxV9ebfM5fsg",
 		},
 	}
 
@@ -25,6 +25,7 @@ func TestSignAndParse(t *testing.T) {
 
 		c := &Claims{
 			"Alpha Bravo",
+			"alpha@bravo.com",
 			jwt.RegisteredClaims{
 				Issuer: "M7C.co",
 			},
